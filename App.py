@@ -12,18 +12,26 @@ st.set_page_config(
 st.title("Analisa Fundamental Saham berbasis AI")
 st.caption("Sc: yFinance (Yahoo Finance)")
 
-ticker = st.text_input(
-    "Masukkan kode saham (contoh: LPKR.JK) JK = saham IHSG",
-    value="BBCA.JK"
+ticker_input = st.text_input(
+    "Masukkan kode saham (BBCA, BUMI, DADA)",
+    value="GOTO"
 )
 
 analyze = st.button("Analisis")
+
+def normalize_ticker(ticker: str) -> str:
+    ticker = ticker.upper().strip()
+    if not ticker.endswith(".JK"):
+        ticker = f"{ticker}.JK"
+    return ticker
 
 @st.cache_resource
 def load_chain():
     return build_analysis_chain()
 
-if analyze and ticker:
+if analyze and ticker_input:
+    ticker = normalize_ticker(ticker_input)
+
     with st.spinner("Fetch data & analisa fundamental..."):
         data = fetch_fundamental_data(ticker)
         signals = generate_fundamental_signals(data)
