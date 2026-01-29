@@ -4,9 +4,11 @@ def fetch_fundamental_data(ticker: str):
     stock = yf.Ticker(ticker)
     info = stock.info
 
+
     return {
         "ticker": ticker,
         "price": info.get("currentPrice"),
+        "longbussines_summary": info.get("longBusinessSummary"),
         "market_cap": info.get("marketCap"),
         "pe": info.get("trailingPE"),
         "pb": info.get("priceToBook"),
@@ -14,4 +16,8 @@ def fetch_fundamental_data(ticker: str):
         "revenue_growth": info.get("revenueGrowth"),
         "free_cashflow": info.get("freeCashflow"),
         "debt_to_equity": info.get("debtToEquity"),
+        
+        # "valuation": info.get("valuation")
     }
+
+fetch_fundamental_data("LPKR.JK")
