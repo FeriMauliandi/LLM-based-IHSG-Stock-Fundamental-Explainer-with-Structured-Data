@@ -3,8 +3,8 @@ from datetime import datetime
 
 from data.data_fetcher import fetch_fundamental_data
 from reason.signals import generate_fundamental_signals
-from chains.analysis_chain import build_analysis_chain
-from chains.comparison_chain import build_comparison_chain
+from chains.analysis_chain import build_analysis_chain, build_comparison_chain
+
 
 
 st.set_page_config(
@@ -87,6 +87,7 @@ if st.session_state.history:
     st.caption(f"Dianalisis pada {latest['time']}")
     st.write(latest["analysis"])
 
+    with st.expander("📄 Data Fundamental (Mentah)"): st.json(latest["metrics"])
 
 
         
