@@ -18,7 +18,7 @@ Tugas Anda:
 2. Jelaskan arti masing-masing indikator fundamental di atas serta nilai aktual dengan bahasa Indonesia yang sederhana.
 3. Jelaskan kondisi perusahaan secara umum berdasarkan data fundamental tersebut (misalnya sehat, cukup baik, atau berisiko).
 4. Sebutkan kekuatan utama dan risiko utama perusahaan berdasarkan data.
-5. Apakah saham perusahaan tersebut bisa dibilang undervalue dan berpotensi naik
+5. Apakah saham perusahaan tersebut bisa dibilang undervalue dan berpotensi naik berdasarkan data value dan volume.
 
 Gunakan bahasa yang mudah dipahami oleh pemula.
 Hindari istilah teknis yang berlebihan.
