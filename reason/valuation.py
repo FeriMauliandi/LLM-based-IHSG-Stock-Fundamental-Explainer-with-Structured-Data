@@ -12,6 +12,8 @@ def calculate_fair_value(data: dict) -> dict:
     eps = data.get("eps")
     bvps = data.get("book_value")
     roe = data.get("roe")
+    target_pe = data.get("target_pe", 15.0)
+    target_pbv = data.get("target_pbv")
 
     if not price or price <= 0:
         return {"error": "Harga saham tidak valid."}
@@ -25,13 +27,13 @@ def calculate_fair_value(data: dict) -> dict:
 
     # 2. Fair PE Model (Berdasarkan PER Acuan 15.0x atau disesuaikan)
     if eps and eps > 0:
-        pe_val = eps * 15.0
-        estimates["PE Benchmark (15x)"] = round(pe_val, 2)
+        pe_val = eps * target_pe
+        estimates[f"PE Benchmark ({target_pe:g}x)"] = round(pe_val, 2)
 
-    # 3. Fair PBV Model (Berdasarkan ROE, contoh ROE 15% -> Target PBV 1.5x, min 1.0x)
-    if bvps and bvps > 0 and roe and roe > 0:
-        target_pbv = max(1.0, roe * 10)  # misal ROE 0.15 -> target PBV 1.5x
-        pbv_val = bvps * target_pbv
+    # 3. Fair PBV Model (Berdasarkan input target PBV atau ROE, contoh ROE 15% -> Target PBV 1.5x, min 1.0x)
+    if bvps and bvps > 0 and (target_pbv or (roe and roe > 0)):
+        effective_target_pbv = target_pbv if target_pbv else max(1.0, roe * 10)
+        pbv_val = bvps * effective_target_pbv
         estimates["PBV Model (ROE-adjusted)"] = round(pbv_val, 2)
 
     if not estimates:

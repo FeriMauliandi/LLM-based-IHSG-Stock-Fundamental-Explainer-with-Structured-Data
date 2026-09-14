@@ -45,6 +45,16 @@ def normalize_ticker(ticker: str) -> str:
         ticker = f"{ticker}.JK"
     return ticker
 
+def format_rupiah(value, decimals: int = 0) -> str:
+    if value is None:
+        return "N/A"
+    return f"Rp {value:,.{decimals}f}"
+
+def format_per_pbv(pe, pb) -> str:
+    if pe is None or pb is None:
+        return "N/A"
+    return f"{pe:.1f}x / {pb:.2f}x"
+
 @st.cache_resource
 def load_chain():
     return build_analysis_chain()
@@ -109,7 +119,7 @@ with tab1:
 
     run_screen = st.button("🚀 Jalankan Screener Sekarang", type="primary")
 
-    if run_screen or preset_clicked or "screener_data" not in st.session_state:
+    if run_screen or preset_clicked:
         with st.spinner("Sedang memindai dan menganalisis saham IHSG..."):
             screener_results = run_stock_screener(
                 tickers=POPULAR_IHSG_STOCKS,
@@ -155,7 +165,8 @@ with tab1:
         if st.button("🔎 Menganalisis Saham Terpilih dengan AI"):
             st.session_state.selected_ticker = selected_from_screener
             st.success(f"Saham {selected_from_screener} dipilih. Buka Tab **Analisis Detail & AI**!")
-
+    elif "screener_data" in st.session_state:
+        st.warning("Tidak ada saham yang memenuhi kriteria. Coba longgarkan filter screener.")
 
 # ==========================================
 # TAB 2: ANALISIS DETAIL & AI
@@ -201,7 +212,7 @@ with tab2:
                 - Current Ratio: {data.get('current_ratio')}x
                 - Dividend Yield: {(data.get('dividend_yield') or 0)*100:.1f}%
                 - Free Cash Flow: {data.get('free_cashflow')}
-                - Market Cap: Rp {data.get('market_cap'):,}
+                - Market Cap: {format_rupiah(data.get('market_cap'))}
                 """
 
                 signal_text = "\n".join(f"- {s}" for s in signals)
@@ -250,18 +261,18 @@ with tab2:
         # Key Metrics Grid
         m1, m2, m3, m4, m5 = st.columns(5)
         with m1:
-            st.metric("Harga Terkini", f"Rp {m.get('price'):,}" if m.get("price") else "N/A")
+            st.metric("Harga Terkini", format_rupiah(m.get("price")))
         with m2:
             st.metric("Fundamental Score", f"{s_info['total_score']} / 100", delta=s_info['category'])
         with m3:
             fv = v_info.get('fair_value')
-            st.metric("Harga Wajar (Fair Value)", f"Rp {fv:,.0f}" if fv else "N/A", delta=v_info.get('status'))
+            st.metric("Harga Wajar (Fair Value)", format_rupiah(fv), delta=v_info.get('status'))
         with m4:
             mos = v_info.get('margin_of_safety')
             st.metric("Margin of Safety (MoS)", f"{mos:.1f}%" if mos is not None else "N/A")
         with m5:
             pe_val = m.get('pe')
-            st.metric("PER / PBV", f"{pe_val:.1f}x / {m.get('pb'):.2f}x" if pe_val else "N/A")
+            st.metric("PER / PBV", format_per_pbv(pe_val, m.get('pb')))
 
         # Visual Breakdown 4 Pilar Fundamental
         st.subheader("📊 Breakdown 4 Pilar Fundamental")
@@ -375,7 +386,9 @@ with tab4:
             "price": calc_price,
             "eps": calc_eps,
             "book_value": calc_bvps,
-            "roe": (calc_eps / calc_bvps) if calc_bvps > 0 else 0.15
+            "roe": (calc_eps / calc_bvps) if calc_bvps > 0 else 0.15,
+            "target_pe": calc_target_pe,
+            "target_pbv": calc_target_pbv,
         }
         res_val = calculate_fair_value(mock_data)
 
