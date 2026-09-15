@@ -9,7 +9,8 @@ POPULAR_IHSG_STOCKS = [
     "TLKM.JK", "ASII.JK", "UNVR.JK", "ICBP.JK", "INDF.JK",
     "ADRO.JK", "PTBA.JK", "ITMG.JK", "PGAS.JK", "ANTM.JK",
     "KLBF.JK", "SMGR.JK", "MYOR.JK", "AMRT.JK", "MAPI.JK",
-    "MEDC.JK", "AUTO.JK", "ACES.JK", "ISAT.JK", "GOTO.JK"
+    "MEDC.JK", "AUTO.JK", "ACES.JK", "ISAT.JK", "GOTO.JK",
+    "BIPI.JK", "BRMS.JK", "BUMI.JK", "DEWA.JK", "BULL.JK"
 ]
 
 def fetch_single_stock_summary(ticker: str) -> dict | None:
