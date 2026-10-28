@@ -39,29 +39,55 @@ if "history" not in st.session_state:
 if "selected_ticker" not in st.session_state:
     st.session_state.selected_ticker = "BBCA"
 
+
 def normalize_ticker(ticker: str) -> str:
     ticker = ticker.upper().strip()
     if not ticker.endswith(".JK"):
         ticker = f"{ticker}.JK"
     return ticker
 
+
 def format_rupiah(value, decimals: int = 0) -> str:
     if value is None:
         return "N/A"
     return f"Rp {value:,.{decimals}f}"
+
 
 def format_per_pbv(pe, pb) -> str:
     if pe is None or pb is None:
         return "N/A"
     return f"{pe:.1f}x / {pb:.2f}x"
 
+
+def safe_round(value, decimals=2):
+    """Safely round a value, returning None if value is None."""
+    if value is None:
+        return None
+    try:
+        return round(float(value), decimals)
+    except (TypeError, ValueError):
+        return None
+
+
+def safe_pct(value, decimals=2):
+    """Safely convert ratio to percentage and round."""
+    if value is None:
+        return None
+    try:
+        return round(float(value) * 100, decimals)
+    except (TypeError, ValueError):
+        return None
+
+
 @st.cache_resource
 def load_chain():
     return build_analysis_chain()
 
+
 @st.cache_resource
 def load_comparison_chain():
     return build_comparison_chain()
+
 
 # Sidebar Info & Settings
 with st.sidebar:
@@ -69,9 +95,23 @@ with st.sidebar:
     st.markdown("""
     **Pilar Skor Fundamental (0-100):**
     - 🟢 **Profitabilitas (25 pt):** ROE, ROA, Net Margin
-    - 🏷️ **Valuasi (25 pt):** PER, PBV, Diskon Harga
+    - 🏷️ **Valuasi (25 pt):** PER, PBV
     - 🛡️ **Solvabilitas & Kas (25 pt):** DER, FCF, Current Ratio
-    - 🚀 **Pertumbuhan & Dividen (25 pt):** Rev Growth, Div Yield
+    - 🚀 **Pertumbuhan & Dividen (25 pt):** Rev Growth, Earn Growth, Div Yield
+
+    **Sistem Reward & Penalty:**
+    - ✅ Metrik bagus mendapat poin positif
+    - ❌ Metrik buruk mendapat poin negatif (penalti)
+
+    **Kategori Skor:**
+    - 🟢 **80+**: Sangat Sehat (Strong)
+    - 🟡 **65-79**: Sehat (Good)
+    - 🟧 **50-64**: Cukup (Fair)
+    - 🟠 **35-49**: Lemah (Weak)
+    - 🔴 **<35**: Sangat Lemah / Berisiko
+
+    **Model Valuasi:**
+    Graham Number, PE Benchmark, PBV (ROE-adjusted), Earnings Power Value (EPV)
     """)
     st.divider()
     if st.button("🗑️ Hapus Riwayat Analisis"):
@@ -88,7 +128,7 @@ tab1, tab2, tab3, tab4 = st.tabs([
 ])
 
 # ==========================================
-# TAB 1: SCREENER SAHAM UNDEVALUED & SEHAT
+# TAB 1: SCREENER SAHAM UNDERVALUED & SEHAT
 # ==========================================
 with tab1:
     st.subheader("🔍 Stock Screener IHSG (Saringan Saham Undervalued & Sehat)")
@@ -181,7 +221,7 @@ with tab2:
             value=st.session_state.selected_ticker
         )
     with c_btn:
-        st.write("") # spacing
+        st.write("")  # spacing
         st.write("")
         analyze = st.button("⚡ Analisis Sekarang", type="primary")
 
@@ -199,11 +239,14 @@ with tab2:
                 score_info = calculate_fundamental_score(data)
                 val_info = calculate_fair_value(data)
 
-                # Format metrics string for prompt
+                # Format enriched metrics string for AI prompt
                 metrics_summary = f"""
                 - Nama Perusahaan: {data.get('company_name')}
                 - Sektor / Industri: {data.get('sector')} / {data.get('industry')}
+                - Harga Terkini: Rp {data.get('price')}
+                - Market Cap: {format_rupiah(data.get('market_cap'))}
                 - PER (Trailing): {data.get('pe')}x
+                - PER (Forward): {data.get('forward_pe')}x
                 - PBV (Price to Book): {data.get('pb')}x
                 - ROE (Return on Equity): {(data.get('roe') or 0)*100:.1f}%
                 - ROA (Return on Assets): {(data.get('roa') or 0)*100:.1f}%
@@ -211,25 +254,34 @@ with tab2:
                 - DER (Debt to Equity): {data.get('debt_to_equity')}x
                 - Current Ratio: {data.get('current_ratio')}x
                 - Dividend Yield: {(data.get('dividend_yield') or 0)*100:.1f}%
+                - Revenue Growth: {(data.get('revenue_growth') or 0)*100:.1f}%
+                - Earnings Growth: {(data.get('earnings_growth') or 0)*100:.1f}%
                 - Free Cash Flow: {data.get('free_cashflow')}
-                - Market Cap: {format_rupiah(data.get('market_cap'))}
+                - Operating Cash Flow: {data.get('operating_cashflow')}
+                - EPS: {data.get('eps')}
+                - Book Value per Share: {data.get('book_value')}
                 """
 
                 signal_text = "\n".join(f"- {s}" for s in signals)
+                business_summary = data.get("longbussines_summary", "Deskripsi bisnis tidak tersedia.")
 
-                # Run LLM Chain
+                # Run LLM Chain with error handling
                 chain = load_chain()
-                ai_explanation = chain.invoke({
-                    "ticker": ticker,
-                    "company_name": data.get("company_name"),
-                    "price": data.get("price"),
-                    "score": score_info["total_score"],
-                    "category": score_info["category"],
-                    "fair_value": val_info.get("fair_value", "N/A"),
-                    "mos": val_info.get("margin_of_safety", "N/A"),
-                    "metrics": metrics_summary,
-                    "signals": signal_text
-                })
+                try:
+                    ai_explanation = chain.invoke({
+                        "ticker": ticker,
+                        "company_name": data.get("company_name"),
+                        "price": data.get("price"),
+                        "score": score_info["total_score"],
+                        "category": score_info["category"],
+                        "fair_value": val_info.get("fair_value", "N/A"),
+                        "mos": val_info.get("margin_of_safety", "N/A"),
+                        "metrics": metrics_summary,
+                        "signals": signal_text,
+                        "business_summary": business_summary
+                    })
+                except Exception as e:
+                    ai_explanation = f"⚠️ Gagal mendapatkan analisis AI: {str(e)}"
 
                 analysis_result = {
                     "ticker": ticker,
@@ -242,10 +294,10 @@ with tab2:
                     "analysis": ai_explanation
                 }
 
-                # Update history
+                # Update history (keep more for comparison)
                 st.session_state.history = [item for item in st.session_state.history if item["ticker"] != ticker]
                 st.session_state.history.insert(0, analysis_result)
-                st.session_state.history = st.session_state.history[:6]
+                st.session_state.history = st.session_state.history[:10]
 
     # Render Latest Selected Analysis
     if st.session_state.history:
@@ -256,7 +308,7 @@ with tab2:
 
         st.divider()
         st.markdown(f"## {s_info['badge']} {latest['company_name']} ({latest['ticker']})")
-        st.caption(f"Sektor: {m.get('sector')} | Dianalisis pada: {latest['time']}")
+        st.caption(f"Sektor: {m.get('sector')} | Industri: {m.get('industry')} | Dianalisis pada: {latest['time']}")
 
         # Key Metrics Grid
         m1, m2, m3, m4, m5 = st.columns(5)
@@ -283,7 +335,7 @@ with tab2:
             st.bar_chart(df_pillars.set_index("Pilar"))
 
         with col_p2:
-            st.markdown("**Poin Positif & Catatan:**")
+            st.markdown("**Detail Penilaian (Reward & Penalty):**")
             for det in s_info["details"]:
                 st.markdown(f"- {det}")
 
@@ -295,6 +347,17 @@ with tab2:
         st.subheader("🎯 Sinyal & Indikator Terdeteksi")
         for sig in latest["signals"]:
             st.markdown(f"- {sig}")
+
+        # Valuation Model Detail
+        if v_info.get("estimates"):
+            st.subheader("🧮 Detail Model Valuasi")
+            est_items = list(v_info["estimates"].items())
+            val_cols = st.columns(min(len(est_items), 4))
+            for i, (model_name, model_value) in enumerate(est_items):
+                with val_cols[i % len(val_cols)]:
+                    st.metric(model_name, format_rupiah(model_value))
+            if "weighted_avg" in v_info:
+                st.caption(f"Weighted Average: {format_rupiah(v_info['weighted_avg'])} | Median: {format_rupiah(v_info['median'])} | Final (60/40 blend): {format_rupiah(v_info['fair_value'])}")
 
         with st.expander("📄 Data Fundamental Lengkap (Raw Data)"):
             st.json(latest["metrics"])
@@ -320,7 +383,7 @@ with tab3:
         if selected_to_compare:
             comparison_items = [item for item in st.session_state.history if item["ticker"] in selected_to_compare]
 
-            # Comparison Table
+            # Comparison Table (with safe rounding — no more crashes on None)
             comp_data = []
             for item in comparison_items:
                 m = item["metrics"]
@@ -333,12 +396,13 @@ with tab3:
                     "Harga": m.get("price"),
                     "Fair Value": v.get("fair_value"),
                     "MoS (%)": v.get("margin_of_safety"),
-                    "PER (x)": round(m.get("pe"), 2) if m.get("pe") else None,
-                    "PBV (x)": round(m.get("pb"), 2) if m.get("pb") else None,
-                    "ROE (%)": round(m.get("roe") * 100, 2) if m.get("roe") else None,
-                    "Net Margin (%)": round(m.get("profit_margin") * 100, 2) if m.get("profit_margin") else None,
-                    "DER (x)": round(m.get("debt_to_equity"), 2) if m.get("debt_to_equity") else None,
-                    "Div Yield (%)": round(m.get("dividend_yield") * 100, 2) if m.get("dividend_yield") else None,
+                    "PER (x)": safe_round(m.get("pe")),
+                    "PBV (x)": safe_round(m.get("pb")),
+                    "ROE (%)": safe_pct(m.get("roe")),
+                    "Net Margin (%)": safe_pct(m.get("profit_margin")),
+                    "DER (x)": safe_round(m.get("debt_to_equity")),
+                    "Div Yield (%)": safe_pct(m.get("dividend_yield")),
+                    "Rev Growth (%)": safe_pct(m.get("revenue_growth")),
                 })
 
             df_comp = pd.DataFrame(comp_data)
@@ -354,12 +418,19 @@ with tab3:
                         s = item["score_info"]
                         v = item["val_info"]
                         stocks_str += f"\n--- SAHAM: {item['ticker']} ({item['company_name']}) ---\n"
+                        stocks_str += f"- Sektor: {m.get('sector')} | Industri: {m.get('industry')}\n"
                         stocks_str += f"- Fundamental Score: {s['total_score']}/100 ({s['category']})\n"
                         stocks_str += f"- Harga Terkini: Rp {m.get('price')} | Fair Value: Rp {v.get('fair_value')} (MoS: {v.get('margin_of_safety')}%)\n"
                         stocks_str += f"- PER: {m.get('pe')}x | PBV: {m.get('pb')}x | ROE: {(m.get('roe') or 0)*100:.1f}%\n"
                         stocks_str += f"- Net Margin: {(m.get('profit_margin') or 0)*100:.1f}% | DER: {m.get('debt_to_equity')}x\n"
+                        stocks_str += f"- Rev Growth: {(m.get('revenue_growth') or 0)*100:.1f}% | Earn Growth: {(m.get('earnings_growth') or 0)*100:.1f}%\n"
+                        stocks_str += f"- Dividend Yield: {(m.get('dividend_yield') or 0)*100:.1f}% | Current Ratio: {m.get('current_ratio')}x\n"
+                        stocks_str += f"- FCF: {m.get('free_cashflow')} | Market Cap: {format_rupiah(m.get('market_cap'))}\n"
 
-                    comp_result = comp_chain.invoke({"stocks_data": stocks_str})
+                    try:
+                        comp_result = comp_chain.invoke({"stocks_data": stocks_str})
+                    except Exception as e:
+                        comp_result = f"⚠️ Gagal mendapatkan perbandingan AI: {str(e)}"
 
                 st.markdown("### 🏆 Hasil Perbandingan Fundamental oleh AI")
                 st.markdown(comp_result)
@@ -370,7 +441,7 @@ with tab3:
 # ==========================================
 with tab4:
     st.subheader("🧮 Kalkulator Valuasi & Margin of Safety (MoS)")
-    st.markdown("Hitung estimasi harga wajar saham menggunakan Metode **Graham Number**, **PER Target**, dan **PBV Target**.")
+    st.markdown("Hitung estimasi harga wajar saham menggunakan **Graham Number**, **PER Target**, **PBV Target**, dan **Earnings Power Value (EPV)**.")
 
     col_v1, col_v2 = st.columns(2)
     with col_v1:
@@ -380,6 +451,7 @@ with tab4:
     with col_v2:
         calc_target_pe = st.number_input("Target PER Acuan (x)", value=15.0, step=1.0)
         calc_target_pbv = st.number_input("Target PBV Acuan (x)", value=1.8, step=0.1)
+        calc_profit_margin = st.number_input("Net Profit Margin (%)", value=15.0, step=1.0)
 
     if st.button("🧮 Hitung Harga Wajar", type="primary"):
         mock_data = {
@@ -387,17 +459,24 @@ with tab4:
             "eps": calc_eps,
             "book_value": calc_bvps,
             "roe": (calc_eps / calc_bvps) if calc_bvps > 0 else 0.15,
+            "profit_margin": calc_profit_margin / 100.0,
             "target_pe": calc_target_pe,
             "target_pbv": calc_target_pbv,
         }
         res_val = calculate_fair_value(mock_data)
 
-        st.divider()
-        r1, r2, r3 = st.columns(3)
-        r1.metric("Harga Terkini", f"Rp {calc_price:,.0f}")
-        r2.metric("Estimasi Fair Value", f"Rp {res_val['fair_value']:,.0f}", delta=res_val['status'])
-        r3.metric("Margin of Safety (MoS)", f"{res_val['margin_of_safety']:.1f}%")
+        if "error" in res_val:
+            st.error(res_val["error"])
+        else:
+            st.divider()
+            r1, r2, r3 = st.columns(3)
+            r1.metric("Harga Terkini", f"Rp {calc_price:,.0f}")
+            r2.metric("Estimasi Fair Value", f"Rp {res_val['fair_value']:,.0f}", delta=res_val['status'])
+            r3.metric("Margin of Safety (MoS)", f"{res_val['margin_of_safety']:.1f}%")
 
-        st.markdown("### Rincian Model Valuasi:")
-        for k, v in res_val.get("estimates", {}).items():
-            st.write(f"- **{k}:** Rp {v:,.2f}")
+            st.markdown("### Rincian Model Valuasi:")
+            for k, v in res_val.get("estimates", {}).items():
+                st.write(f"- **{k}:** Rp {v:,.2f}")
+
+            if "weighted_avg" in res_val:
+                st.caption(f"Weighted Average: Rp {res_val['weighted_avg']:,.0f} | Median: Rp {res_val['median']:,.0f} | Final Fair Value (60/40 blend): Rp {res_val['fair_value']:,.0f}")
