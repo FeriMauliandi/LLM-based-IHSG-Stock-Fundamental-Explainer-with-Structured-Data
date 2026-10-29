@@ -265,10 +265,13 @@ with tab2:
                 signal_text = "\n".join(f"- {s}" for s in signals)
                 business_summary = data.get("longbussines_summary", "Deskripsi bisnis tidak tersedia.")
 
-                # Run LLM Chain with error handling
+                # Run LangGraph Multi-Agent Workflow
                 chain = load_chain()
+                ai_explanation = None
+                agent_trace = []
+                tool_results = {}
                 try:
-                    ai_explanation = chain.invoke({
+                    agent_payload = {
                         "ticker": ticker,
                         "company_name": data.get("company_name"),
                         "price": data.get("price"),
@@ -278,8 +281,22 @@ with tab2:
                         "mos": val_info.get("margin_of_safety", "N/A"),
                         "metrics": metrics_summary,
                         "signals": signal_text,
-                        "business_summary": business_summary
-                    })
+                        "business_summary": business_summary,
+                        "raw_data": data
+                    }
+                    structured_report = None
+                    conviction_score = None
+                    investment_classification = None
+                    if hasattr(chain, "invoke_full"):
+                        full_res = chain.invoke_full(agent_payload)
+                        ai_explanation = full_res.get("final_analysis", "")
+                        agent_trace = full_res.get("agent_trace", [])
+                        tool_results = full_res.get("tool_results", {})
+                        structured_report = full_res.get("structured_report")
+                        conviction_score = full_res.get("conviction_score")
+                        investment_classification = full_res.get("investment_classification")
+                    else:
+                        ai_explanation = chain.invoke(agent_payload)
                 except Exception as e:
                     ai_explanation = f"⚠️ Gagal mendapatkan analisis AI: {str(e)}"
 
@@ -291,7 +308,12 @@ with tab2:
                     "signals": signals,
                     "score_info": score_info,
                     "val_info": val_info,
-                    "analysis": ai_explanation
+                    "analysis": ai_explanation,
+                    "agent_trace": agent_trace,
+                    "tool_results": tool_results,
+                    "structured_report": structured_report,
+                    "conviction_score": conviction_score,
+                    "investment_classification": investment_classification
                 }
 
                 # Update history (keep more for comparison)
@@ -339,8 +361,35 @@ with tab2:
             for det in s_info["details"]:
                 st.markdown(f"- {det}")
 
+        # Multi-Agent Workflow Observability & Diagnostic Tools
+        if latest.get("agent_trace"):
+            with st.expander("🤖 LangGraph Multi-Agent Execution Trace & Tools", expanded=True):
+                st.markdown("**Alur Kerja Koordinasi Multi-Agent (StateGraph):**")
+                for step in latest["agent_trace"]:
+                    st.markdown(f"**`{step.get('timestamp')}` — {step.get('agent')}**")
+                    st.caption(f"Aksi: *{step.get('action')}*")
+                    st.info(step.get("summary"))
+
+                tool_res = latest.get("tool_results")
+                if tool_res:
+                    st.markdown("---")
+                    st.markdown("**Hasil Diagnostik Tools Kuantitatif Dinamis:**")
+                    cols = st.columns(len(tool_res))
+                    for i, (tool_name, tool_data) in enumerate(tool_res.items()):
+                        with cols[i]:
+                            st.caption(f"🛠️ **{tool_name}**")
+                            st.write(tool_data.get("summary", "N/A"))
+
         # AI Explanation Output
-        st.subheader("🤖 Penjelasan AI (Bahasa Sederhana)")
+        st.subheader("🤖 Rekomendasi & Sintesis Multi-Agent AI (CIO Report)")
+        if latest.get("conviction_score") or latest.get("investment_classification"):
+            b1, b2 = st.columns(2)
+            with b1:
+                c_score = latest.get("conviction_score")
+                st.success(f"🎯 **AI Conviction Score:** {c_score:.1f} / 10.0" if c_score else "🎯 **AI Conviction Score:** N/A")
+            with b2:
+                st.info(f"🏷️ **Klasifikasi Rekomendasi:** {latest.get('investment_classification', 'N/A')}")
+
         st.markdown(latest["analysis"])
 
         # Signals Section

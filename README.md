@@ -57,10 +57,26 @@ GROQ_API_KEY=gsk_xxxxxxxxx
 > **Catatan:** Fitur analisis kuantitatif, scoring fundamental, kalkulator fair value, dan screener tetap berjalan 100% normal meskipun tanpa API Key. API Key Groq digunakan untuk analisis AI ultra-cepat (Llama 3.3 70B, Gemma 2, dll).
 
 ### 4. Menjalankan Aplikasi
+
+#### Opsi A: Menggunakan Docker & Docker Compose (Direkomendasikan)
+Menjalankan seluruh ekosistem (FastAPI Backend, Web UI, dan Streamlit Dashboard) secara instan:
 ```bash
-streamlit run App.py
+docker compose up --build
 ```
-Aplikasi akan otomatis terbuka di browser pada alamat `http://localhost:8501`.
+Aplikasi dapat diakses di:
+- **FastAPI Backend & Swagger Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
+- **Web UI (Tailwind + Vanilla JS):** [http://localhost:8000/app/](http://localhost:8000/app/)
+- **Streamlit Analytics Dashboard:** [http://localhost:8501](http://localhost:8501)
+
+#### Opsi B: Menjalankan Mandiri (Lokal / Python)
+Jalankan salah satu atau kedua layanan:
+```bash
+# 1. Jalankan Streamlit Dashboard
+streamlit run App.py
+
+# 2. Jalankan FastAPI Backend & Web UI
+python backend/main.py
+```
 
 ---
 
@@ -68,21 +84,38 @@ Aplikasi akan otomatis terbuka di browser pada alamat `http://localhost:8501`.
 
 ```text
 Stock AI Agents/
-├── App.py                     # Entry point UI Streamlit (Tabs, Charts, Tables)
+├── .github/workflows/
+│   └── ci-cd.yaml             # Pipeline CI/CD GitHub Actions (Lint, Test, Docker Build & GHCR)
+├── agents/                    # Arsitektur Multi-Agent berbasis LangGraph
+│   ├── graph.py               # StateGraph orchestrator (Tool Engine -> Valuation -> Risk -> CIO)
+│   ├── subagents.py           # Specialized LLM Agents & nodes
+│   ├── tools.py               # Dynamic Tools (Peer Benchmark, Altman Z-Score, Dividend Safety)
+│   └── state.py               # Agent State & Observability Tracing definition
+├── backend/
+│   └── main.py                # REST API FastAPI dengan metadata trace multi-agent & static app
+├── chains/
+│   └── analysis_chain.py      # Entry point orkestrasi analitik & fallback provider
 ├── data/
 │   ├── data_fetcher.py        # Pengambil data dari Yahoo Finance & normalisasi mata uang
 │   └── screener.py            # Mesin screening saham paralel multithreading
+├── frontend/                  # Modern Web UI (HTML5, Tailwind CSS, Vanilla JS)
+│   ├── index.html
+│   ├── app.js
+│   └── style.css
 ├── reason/
 │   ├── scoring.py             # Algoritma Skor Fundamental (4 Pilar, Reward & Penalty, Sector-aware)
 │   ├── signals.py             # Generator sinyal kuantitatif (Valuasi, Margin, FCF Yield, Volume)
 │   └── valuation.py           # Kalkulator Fair Value multi-model & Margin of Safety
-├── chains/
-│   └── analysis_chain.py      # Resilient LLM Chain dengan auto-fallback multi-model Groq (Llama 3.3, Gemma 2, dll)
-├── prompts/
-│   ├── fundamental_prompt.py  # Prompt analisis detail dengan konteks sektoral
-│   └── comparison_prompt.py   # Prompt komparasi head-to-head terstruktur
+├── tests/
+│   └── test_multi_agent.py    # Unit tests arsitektur agent & tools kuantitatif
+├── .dockerignore              # Aturan pengecualian build Docker
 ├── .env.example               # Template environment variables
-├── requirements.txt           # Daftar library Python
+├── .gitignore                 # Konfigurasi Git ignore
+├── App.py                     # Entry point UI Streamlit (Tabs, Multi-Agent Trace, Charts)
+├── ci-cd.yaml                 # Spesifikasi workflow CI/CD
+├── docker-compose.yml         # Konfigurasi orkestrasi multi-service Docker
+├── Dockerfile                 # Multi-stage Docker image (backend & streamlit)
+├── requirements.txt           # Dependensi Python
 └── README.md                  # Dokumentasi proyek
 ```
 

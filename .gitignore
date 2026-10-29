@@ -1,4 +1,24 @@
+# Byte-compiled / optimized / DLL files
 __pycache__/
-*.pyc
-.yfinance_cache/
+*.py[cod]
+*$py.class
+
+# Environment Variables & Secrets
 .env
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+
+# Test & Coverage Caches
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local Financial Data Cache
+.yfinance_cache/
+
+# OS specific files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,171 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - master
+      - develop
+  pull_request:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ===================================================
+  # 1. CI - Linting, Formatting & Automated Testing
+  # ===================================================
+  test:
+    name: Lint & Test (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install flake8 pytest-cov
+
+      - name: Check Code Syntax & Errors
+        run: |
+          # Stop the build if there are Python syntax errors or undefined names
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          # Non-blocking lint warnings for style conventions
+          flake8 . --count --exit-zero --max-complexity=15 --max-line-length=127 --statistics
+
+      - name: Run Pytest Test Suite
+        env:
+          GROQ_API_KEY: "mock_key_for_testing"
+        run: |
+          pytest tests/ -v --cov=. --cov-report=term-missing
+
+  # ===================================================
+  # 2. CI - Docker Build & Smoke Test
+  # ===================================================
+  docker-build:
+    name: Docker Build & Smoke Test
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Backend Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          target: backend
+          tags: stock-ai-backend:test
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build Streamlit Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          target: streamlit
+          tags: stock-ai-streamlit:test
+          load: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Smoke Test Backend Container
+        run: |
+          # Run backend container
+          docker run -d --name test-api -p 8000:8000 stock-ai-backend:test
+          
+          # Wait for container startup and probe health endpoint
+          echo "Waiting for backend health check..."
+          for i in {1..10}; do
+            if curl -s http://localhost:8000/health | grep -q "healthy"; then
+              echo "Backend health check PASSED!"
+              docker stop test-api
+              exit 0
+            fi
+            sleep 2
+          done
+
+          echo "Backend health check FAILED!"
+          docker logs test-api
+          docker stop test-api
+          exit 1
+
+  # ===================================================
+  # 3. CD - Publish Docker Images to GHCR (Optional)
+  # Triggers automatically only on push to main/master
+  # ===================================================
+  docker-publish:
+    name: Publish Images to GHCR
+    needs: docker-build
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry (GHCR)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Downcase Repository Name
+        id: repo-name
+        run: |
+          echo "IMAGE_NAME_BACKEND=ghcr.io/${GITHUB_REPOSITORY,,}-backend" >> $GITHUB_ENV
+          echo "IMAGE_NAME_STREAMLIT=ghcr.io/${GITHUB_REPOSITORY,,}-streamlit" >> $GITHUB_ENV
+
+      - name: Build & Push Backend Image to GHCR
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          target: backend
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME_BACKEND }}:latest
+            ${{ env.IMAGE_NAME_BACKEND }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build & Push Streamlit Image to GHCR
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          target: streamlit
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME_STREAMLIT }}:latest
+            ${{ env.IMAGE_NAME_STREAMLIT }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

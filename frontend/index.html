@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Stock AI Agents — IHSG Screener & Fundamental Analyzer</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eff6ff',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+              900: '#1e3a8a',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Marked.js for markdown rendering -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <!-- Custom CSS -->
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="bg-[#06080d] text-slate-100 min-h-screen flex flex-col antialiased selection:bg-blue-600/40 selection:text-white">
+
+  <!-- ============================================================== -->
+  <!-- TOP HEADER & NAVIGATION                                         -->
+  <!-- ============================================================== -->
+  <header class="border-b border-slate-800/60 bg-[#0b0f19]/95 backdrop-blur-xl sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Brand -->
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 via-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-blue-500/25 border border-blue-400/20">
+          <i data-lucide="activity" class="w-5 h-5 text-white"></i>
+        </div>
+        <div>
+          <div class="flex items-center space-x-2">
+            <h1 class="text-base font-extrabold tracking-tight text-white">Stock AI Agents</h1>
+            <span class="text-[10px] px-2 py-0.5 rounded-full bg-gradient-to-r from-blue-500/15 to-indigo-500/15 text-cyan-400 border border-cyan-500/20 font-mono font-bold">IHSG</span>
+          </div>
+          <p class="text-[11px] text-slate-500 hidden sm:block font-medium tracking-wide">Multi-Agent Fundamental Screener & Fair Value Analyzer</p>
+        </div>
+      </div>
+
+      <!-- Status & Refresh -->
+      <div class="flex items-center space-x-2.5">
+        <div id="backend-status" class="flex items-center space-x-2 px-3 py-1.5 rounded-lg bg-slate-800/60 border border-slate-700/50 text-xs text-slate-400">
+          <span class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+          <span id="status-text">Menghubungkan ke API...</span>
+        </div>
+        <button id="btn-refresh-status" title="Cek ulang status backend" class="p-2 rounded-lg bg-slate-800/40 hover:bg-slate-700/60 text-slate-500 hover:text-white transition border border-transparent hover:border-slate-600/50">
+          <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
+        </button>
+      </div>
+
+    </div>
+
+    <!-- Navigation Tabs -->
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex space-x-1 overflow-x-auto">
+      <button class="nav-tab active flex items-center space-x-2 px-4 py-3 text-sm font-semibold border-b-2 border-blue-500 text-blue-400 transition whitespace-nowrap" data-tab="tab-screener">
+        <i data-lucide="scan-search" class="w-4 h-4"></i>
+        <span>Smart Screener</span>
+      </button>
+      <button class="nav-tab flex items-center space-x-2 px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-300 transition whitespace-nowrap" data-tab="tab-analysis">
+        <i data-lucide="brain-circuit" class="w-4 h-4"></i>
+        <span>Analisis AI</span>
+      </button>
+      <button class="nav-tab flex items-center space-x-2 px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-300 transition whitespace-nowrap" data-tab="tab-compare">
+        <i data-lucide="git-compare-arrows" class="w-4 h-4"></i>
+        <span>Komparasi</span>
+      </button>
+      <button class="nav-tab flex items-center space-x-2 px-4 py-3 text-sm font-medium border-b-2 border-transparent text-slate-500 hover:text-slate-300 transition whitespace-nowrap" data-tab="tab-valuation">
+        <i data-lucide="calculator" class="w-4 h-4"></i>
+        <span>Kalkulator</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ============================================================== -->
+  <!-- MAIN CONTENT                                                    -->
+  <!-- ============================================================== -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+
+    <!-- ============================================================ -->
+    <!-- TAB 1: STOCK SCREENER                                         -->
+    <!-- ============================================================ -->
+    <section id="tab-screener" class="tab-pane space-y-6">
+      
+      <!-- Hero -->
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-2xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
+            <span class="text-3xl">🔍</span>
+            <span>Smart Stock Screener</span>
+          </h2>
+          <p class="text-sm text-slate-500 mt-1 max-w-lg">Saring saham IHSG undervalued berkualitas tinggi berdasarkan skor fundamental, PER, ROE, dan solvabilitas utang.</p>
+        </div>
+
+        <!-- Strategy Presets -->
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">Preset:</span>
+          <button type="button" class="preset-btn px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-300 transition flex items-center gap-1.5" data-preset="undervalued">
+            💎 Undervalued & Sehat
+          </button>
+          <button type="button" class="preset-btn px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-300 transition flex items-center gap-1.5" data-preset="dividen">
+            💰 Dividen Royal
+          </button>
+          <button type="button" class="preset-btn px-3 py-1.5 text-xs font-semibold rounded-lg text-slate-300 transition flex items-center gap-1.5" data-preset="bluechip">
+            🛡️ Bluechip Giant
+          </button>
+        </div>
+      </div>
+
+      <!-- Filter Controls -->
+      <div class="glass-panel p-6 rounded-2xl space-y-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          
+          <!-- Min Score -->
+          <div class="space-y-2.5">
+            <div class="flex justify-between items-center text-sm">
+              <label for="filter-score" class="text-slate-300 font-semibold">Min. Skor Fundamental</label>
+              <span id="label-score" class="text-cyan-400 font-mono font-bold text-sm">50 pt</span>
+            </div>
+            <input type="range" id="filter-score" min="0" max="100" step="5" value="50" class="w-full cursor-pointer" />
+            <div class="flex justify-between text-[10px] text-slate-600 font-mono">
+              <span>0</span>
+              <span>50 Fair</span>
+              <span>80+ Strong</span>
+            </div>
+          </div>
+
+          <!-- Max PER -->
+          <div class="space-y-2">
+            <label for="filter-pe" class="block text-sm font-semibold text-slate-300">Maks. PER (x)</label>
+            <div class="relative">
+              <input type="number" id="filter-pe" value="25.0" step="1.0" min="1" max="100" class="w-full rounded-xl px-4 py-2.5 text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+              <span class="absolute right-3.5 top-2.5 text-[10px] text-slate-600 font-mono">kali</span>
+            </div>
+          </div>
+
+          <!-- Min ROE -->
+          <div class="space-y-2">
+            <label for="filter-roe" class="block text-sm font-semibold text-slate-300">Min. ROE (%)</label>
+            <div class="relative">
+              <input type="number" id="filter-roe" value="8.0" step="1.0" min="0" max="100" class="w-full rounded-xl px-4 py-2.5 text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+              <span class="absolute right-3.5 top-2.5 text-[10px] text-slate-600 font-mono">%</span>
+            </div>
+          </div>
+
+          <!-- Max DER -->
+          <div class="space-y-2">
+            <label for="filter-der" class="block text-sm font-semibold text-slate-300">Maks. DER (Utang)</label>
+            <div class="relative">
+              <input type="number" id="filter-der" value="2.0" step="0.1" min="0.1" max="10" class="w-full rounded-xl px-4 py-2.5 text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+              <span class="absolute right-3.5 top-2.5 text-[10px] text-slate-600 font-mono">ratio</span>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Action Bar -->
+        <div class="flex items-center justify-between pt-4 border-t border-slate-800/50">
+          <div id="screener-count-badge" class="text-xs text-slate-500 font-medium">
+            Siap memindai 25+ saham pilihan IHSG secara paralel.
+          </div>
+          <button id="btn-run-screener" class="px-6 py-2.5 text-white font-bold rounded-xl text-sm transition flex items-center space-x-2">
+            <i data-lucide="play" class="w-4 h-4"></i>
+            <span>Jalankan Screener</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Loading -->
+      <div id="screener-loading" class="hidden py-16 text-center space-y-4">
+        <div class="inline-block rounded-full h-10 w-10 border-4"></div>
+        <p class="text-slate-300 font-semibold">Memindai dan menganalisis fundamental saham IHSG...</p>
+        <p class="text-xs text-slate-500">Mengambil laporan keuangan terbaru & menghitung 4 pilar kuantitatif</p>
+      </div>
+
+      <!-- Results Table -->
+      <div id="screener-results-container" class="space-y-4 hidden">
+        <div class="flex items-center justify-between">
+          <h3 class="text-lg font-bold text-white flex items-center gap-2.5">
+            <span>Hasil Screening</span>
+            <span id="screener-badge-count" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">0 Saham</span>
+          </h3>
+          <span class="text-[11px] text-slate-600">Klik "Analisis AI" untuk diagnosa mendalam</span>
+        </div>
+
+        <div class="overflow-x-auto table-container">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th class="px-4 py-3.5">Saham</th>
+                <th class="px-4 py-3.5">Sektor</th>
+                <th class="px-4 py-3.5 text-right">Harga</th>
+                <th class="px-4 py-3.5">Skor</th>
+                <th class="px-4 py-3.5 text-right">PER / PBV</th>
+                <th class="px-4 py-3.5 text-right">ROE</th>
+                <th class="px-4 py-3.5 text-right">Net Margin</th>
+                <th class="px-4 py-3.5 text-right">Div Yield</th>
+                <th class="px-4 py-3.5 text-right">Fair Value</th>
+                <th class="px-4 py-3.5 text-right">MoS (%)</th>
+                <th class="px-4 py-3.5 text-center">Status</th>
+                <th class="px-4 py-3.5 text-center">Aksi</th>
+              </tr>
+            </thead>
+            <tbody id="screener-table-body" class="font-sans">
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+
+    <!-- ============================================================ -->
+    <!-- TAB 2: ANALISIS DETAIL & AI                                   -->
+    <!-- ============================================================ -->
+    <section id="tab-analysis" class="tab-pane space-y-6 hidden">
+      
+      <!-- Search -->
+      <div class="glass-panel p-6 rounded-2xl space-y-4">
+        <div>
+          <label class="block text-sm font-semibold text-slate-300 mb-2">Masukkan Kode Saham IHSG:</label>
+          <div class="flex flex-col sm:flex-row gap-3">
+            <div class="relative flex-1">
+              <input type="text" id="input-ticker" placeholder="misal: BBCA, BBRI, TLKM, ADRO..." value="BBCA" class="w-full rounded-xl px-4 py-3 text-slate-100 font-bold tracking-wider uppercase placeholder:normal-case placeholder:font-normal placeholder:text-slate-600 focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+              <span class="absolute right-3.5 top-3.5 text-[10px] text-slate-600 font-mono">.JK</span>
+            </div>
+            
+            <button id="btn-analyze-stock" class="px-6 py-3 text-white font-bold rounded-xl text-sm transition flex items-center justify-center space-x-2">
+              <i data-lucide="sparkles" class="w-4 h-4"></i>
+              <span>Analisis Sekarang</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Options & Quick Chips -->
+        <div class="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-800/40 text-xs">
+          <div class="flex items-center space-x-2">
+            <input type="checkbox" id="check-include-ai" checked class="w-4 h-4 rounded bg-slate-900 border-slate-700 text-blue-600 focus:ring-blue-500 focus:ring-offset-slate-950 cursor-pointer" />
+            <label for="check-include-ai" class="text-slate-400 font-medium cursor-pointer">Sertakan Narasi Multi-Agent AI (LangGraph)</label>
+          </div>
+
+          <div class="flex items-center gap-1.5 flex-wrap">
+            <span class="text-slate-600 font-mono text-[10px]">Cepat:</span>
+            <button class="quick-chip px-2.5 py-1 rounded-md text-slate-400 font-mono transition text-[11px]" data-ticker="BBCA">BBCA</button>
+            <button class="quick-chip px-2.5 py-1 rounded-md text-slate-400 font-mono transition text-[11px]" data-ticker="BBRI">BBRI</button>
+            <button class="quick-chip px-2.5 py-1 rounded-md text-slate-400 font-mono transition text-[11px]" data-ticker="BMRI">BMRI</button>
+            <button class="quick-chip px-2.5 py-1 rounded-md text-slate-400 font-mono transition text-[11px]" data-ticker="TLKM">TLKM</button>
+            <button class="quick-chip px-2.5 py-1 rounded-md text-slate-400 font-mono transition text-[11px]" data-ticker="ASII">ASII</button>
+            <button class="quick-chip px-2.5 py-1 rounded-md text-slate-400 font-mono transition text-[11px]" data-ticker="ADRO">ADRO</button>
+            <button class="quick-chip px-2.5 py-1 rounded-md text-slate-400 font-mono transition text-[11px]" data-ticker="ICBP">ICBP</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading -->
+      <div id="analysis-loading" class="hidden py-16 text-center space-y-4">
+        <div class="inline-block rounded-full h-10 w-10 border-4"></div>
+        <p class="text-slate-300 font-semibold">Menjalankan Multi-Agent AI Reasoning Pipeline...</p>
+        <p class="text-xs text-slate-500">Tool Engine → Valuation Agent → Risk Officer → CIO Synthesis</p>
+      </div>
+
+      <!-- Results -->
+      <div id="analysis-results" class="space-y-6 hidden">
+        
+        <!-- Stock Hero Header -->
+        <div class="glass-panel p-6 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-3">
+              <span id="stock-badge" class="text-2xl">🟢</span>
+              <h2 id="stock-company-name" class="text-2xl font-extrabold text-white tracking-tight">Bank Central Asia Tbk.</h2>
+              <span id="stock-ticker" class="px-2.5 py-0.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 font-mono font-bold text-xs">BBCA</span>
+            </div>
+            <div class="flex items-center gap-2 text-[11px] text-slate-500 mt-1.5 font-medium">
+              <span id="stock-sector">Sektor: Financial Services</span>
+              <span class="text-slate-700">•</span>
+              <span id="stock-industry">Industri: Banks</span>
+              <span class="text-slate-700">•</span>
+              <span id="stock-timestamp">Dianalisis: 29 Oct 2026</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5 Key Metric Cards -->
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+          
+          <div class="glass-card p-4 rounded-xl">
+            <span class="text-[11px] text-slate-500 block font-semibold uppercase tracking-wider">Harga Terkini</span>
+            <div id="card-price" class="text-xl font-extrabold text-white mt-1.5 font-mono">Rp 9,800</div>
+            <span class="text-[10px] text-slate-600 font-mono">Market Price</span>
+          </div>
+
+          <div class="glass-card p-4 rounded-xl">
+            <span class="text-[11px] text-slate-500 block font-semibold uppercase tracking-wider">Score</span>
+            <div id="card-score" class="text-xl font-extrabold text-emerald-400 mt-1.5 font-mono">82 / 100</div>
+            <span id="card-category" class="text-[10px] text-emerald-500 font-semibold">Sangat Sehat</span>
+          </div>
+
+          <div class="glass-card p-4 rounded-xl">
+            <span class="text-[11px] text-slate-500 block font-semibold uppercase tracking-wider">Fair Value</span>
+            <div id="card-fair-value" class="text-xl font-extrabold text-blue-400 mt-1.5 font-mono">Rp 10,450</div>
+            <span id="card-valuation-status" class="text-[10px] text-slate-500">Undervalued</span>
+          </div>
+
+          <div class="glass-card p-4 rounded-xl">
+            <span class="text-[11px] text-slate-500 block font-semibold uppercase tracking-wider">Margin of Safety</span>
+            <div id="card-mos" class="text-xl font-extrabold text-emerald-400 mt-1.5 font-mono">+12.5%</div>
+            <span class="text-[10px] text-slate-600 font-mono">Diskon Harga</span>
+          </div>
+
+          <div class="glass-card p-4 rounded-xl col-span-2 md:col-span-1">
+            <span class="text-[11px] text-slate-500 block font-semibold uppercase tracking-wider">PER / PBV</span>
+            <div id="card-per-pbv" class="text-xl font-extrabold text-white mt-1.5 font-mono">21.5x / 4.2x</div>
+            <span class="text-[10px] text-slate-600 font-mono">Trailing Multiple</span>
+          </div>
+
+        </div>
+
+        <!-- 4 Pillars Breakdown & Details -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          
+          <!-- Pillars Progress Bars -->
+          <div class="lg:col-span-7 glass-panel p-6 rounded-2xl space-y-5">
+            <h3 class="text-sm font-bold text-slate-300 flex items-center gap-2 uppercase tracking-wider">
+              <i data-lucide="shield-check" class="w-4 h-4 text-blue-400"></i>
+              <span>4 Pilar Fundamental (Maks 25 pt tiap pilar)</span>
+            </h3>
+
+            <div class="space-y-4">
+              <!-- Pillar 1 -->
+              <div>
+                <div class="flex justify-between text-xs font-medium mb-1.5">
+                  <span class="text-slate-400">1. Profitabilitas</span>
+                  <span id="pillar-prof-val" class="font-mono text-emerald-400 font-bold">25 / 25</span>
+                </div>
+                <div class="w-full bg-slate-800/60 h-2 rounded-full overflow-hidden">
+                  <div id="pillar-prof-bar" class="h-2 rounded-full" style="width: 100%"></div>
+                </div>
+              </div>
+
+              <!-- Pillar 2 -->
+              <div>
+                <div class="flex justify-between text-xs font-medium mb-1.5">
+                  <span class="text-slate-400">2. Valuasi</span>
+                  <span id="pillar-val-val" class="font-mono text-blue-400 font-bold">15 / 25</span>
+                </div>
+                <div class="w-full bg-slate-800/60 h-2 rounded-full overflow-hidden">
+                  <div id="pillar-val-bar" class="h-2 rounded-full" style="width: 60%"></div>
+                </div>
+              </div>
+
+              <!-- Pillar 3 -->
+              <div>
+                <div class="flex justify-between text-xs font-medium mb-1.5">
+                  <span class="text-slate-400">3. Solvabilitas & Arus Kas</span>
+                  <span id="pillar-solv-val" class="font-mono text-indigo-400 font-bold">20 / 25</span>
+                </div>
+                <div class="w-full bg-slate-800/60 h-2 rounded-full overflow-hidden">
+                  <div id="pillar-solv-bar" class="h-2 rounded-full" style="width: 80%"></div>
+                </div>
+              </div>
+
+              <!-- Pillar 4 -->
+              <div>
+                <div class="flex justify-between text-xs font-medium mb-1.5">
+                  <span class="text-slate-400">4. Pertumbuhan & Dividen</span>
+                  <span id="pillar-grow-val" class="font-mono text-amber-400 font-bold">22 / 25</span>
+                </div>
+                <div class="w-full bg-slate-800/60 h-2 rounded-full overflow-hidden">
+                  <div id="pillar-grow-bar" class="h-2 rounded-full" style="width: 88%"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Reward & Penalty Details -->
+          <div class="lg:col-span-5 glass-panel p-6 rounded-2xl space-y-3">
+            <h3 class="text-sm font-bold text-slate-300 flex items-center gap-2 uppercase tracking-wider">
+              <i data-lucide="list-checks" class="w-4 h-4 text-emerald-400"></i>
+              <span>Rincian Reward & Penalti</span>
+            </h3>
+            <ul id="score-details-list" class="space-y-1 text-xs text-slate-400 max-h-48 overflow-y-auto pr-1">
+            </ul>
+          </div>
+
+        </div>
+
+        <!-- AI Explanation Card -->
+        <div id="ai-explanation-card" class="glass-panel p-6 sm:p-8 rounded-2xl space-y-5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 gap-3 border-b border-slate-800/50">
+            <div class="flex items-center space-x-3">
+              <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 via-indigo-500 to-violet-600 border border-blue-400/20 flex items-center justify-center text-white shadow-lg shadow-blue-500/20">
+                <i data-lucide="brain-circuit" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h3 class="font-bold text-white text-base tracking-tight">Multi-Agent AI Investment Report</h3>
+                <p class="text-[11px] text-slate-500">Powered by LangGraph StateGraph — Tool Engine + Valuation Agent + Risk Officer + CIO</p>
+              </div>
+            </div>
+            
+            <div class="flex items-center space-x-2">
+              <button id="btn-copy-ai" title="Salin analisis ke clipboard" class="px-3 py-1.5 rounded-lg bg-slate-800/50 hover:bg-slate-700/60 border border-slate-700/40 text-xs font-medium text-slate-400 hover:text-white transition flex items-center space-x-1.5">
+                <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                <span id="btn-copy-ai-text">Salin</span>
+              </button>
+              <span class="text-[10px] px-2.5 py-1 rounded-lg bg-gradient-to-r from-blue-500/10 to-violet-500/10 text-cyan-400 font-mono border border-cyan-500/15 font-bold">LangGraph Multi-Agent</span>
+            </div>
+          </div>
+
+          <!-- Multi-Agent Trace Accordion -->
+          <details id="agent-trace-accordion" class="hidden rounded-xl text-xs overflow-hidden">
+            <summary class="cursor-pointer px-4 py-2.5 font-semibold text-blue-400 hover:text-blue-300 flex items-center justify-between select-none">
+              <span class="flex items-center gap-2">
+                <i data-lucide="git-branch" class="w-3.5 h-3.5"></i>
+                <span>Multi-Agent Execution Trace & Tools</span>
+              </span>
+              <span class="text-[10px] text-slate-600 font-mono">Detail Alur Kerja</span>
+            </summary>
+            <div id="agent-trace-steps" class="p-4 pt-2 space-y-2.5 border-t border-slate-800/50">
+            </div>
+          </details>
+
+          <div id="ai-explanation-content" class="prose-ai text-sm overflow-x-auto">
+          </div>
+        </div>
+
+        <!-- Signals -->
+        <div class="glass-panel p-6 rounded-2xl space-y-3">
+          <h3 class="text-sm font-bold text-slate-300 flex items-center gap-2 uppercase tracking-wider">
+            <i data-lucide="bell-ring" class="w-4 h-4 text-amber-400"></i>
+            <span>Sinyal & Indikator Kuantitatif</span>
+          </h3>
+          <div id="signals-list" class="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+          </div>
+        </div>
+
+        <!-- Multi-Model Valuation -->
+        <div class="glass-panel p-6 rounded-2xl space-y-4">
+          <h3 class="text-sm font-bold text-slate-300 flex items-center gap-2 uppercase tracking-wider">
+            <i data-lucide="calculator" class="w-4 h-4 text-violet-400"></i>
+            <span>Model Harga Wajar (Fair Value Multi-Model)</span>
+          </h3>
+          <div id="valuation-models-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+          </div>
+          <p id="valuation-formula-caption" class="text-[11px] text-slate-600 border-t border-slate-800/40 pt-3 font-mono"></p>
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- ============================================================ -->
+    <!-- TAB 3: KOMPARASI                                              -->
+    <!-- ============================================================ -->
+    <section id="tab-compare" class="tab-pane space-y-6 hidden">
+      
+      <div class="glass-panel p-6 rounded-2xl space-y-4">
+        <div>
+          <h2 class="text-2xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
+            <span class="text-3xl">⚔️</span>
+            <span>Komparasi Head-to-Head</span>
+          </h2>
+          <p class="text-sm text-slate-500 mt-1">Bandingkan 2—8 saham sekaligus secara berdampingan untuk melihat fundamental terkuat.</p>
+        </div>
+
+        <div class="space-y-3">
+          <label class="block text-sm font-semibold text-slate-300">Kode Saham (pisahkan dengan koma):</label>
+          <div class="flex flex-col sm:flex-row gap-3">
+            <input type="text" id="input-compare-tickers" value="BBCA, BBRI, BMRI" placeholder="misal: BBCA, BBRI, BMRI, BBNI" class="flex-1 rounded-xl px-4 py-3 text-slate-100 font-bold tracking-wider uppercase focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            
+            <button id="btn-run-compare" class="px-6 py-3 text-white font-bold rounded-xl text-sm transition flex items-center justify-center space-x-2">
+              <i data-lucide="scale" class="w-4 h-4"></i>
+              <span>Bandingkan</span>
+            </button>
+          </div>
+
+          <div class="flex items-center justify-between text-xs pt-1">
+            <div class="flex items-center space-x-2">
+              <input type="checkbox" id="check-compare-ai" checked class="w-4 h-4 rounded bg-slate-900 border-slate-700 text-blue-600 focus:ring-blue-500 cursor-pointer" />
+              <label for="check-compare-ai" class="text-slate-400 font-medium cursor-pointer">Minta AI tentukan pemenang & kategori</label>
+            </div>
+            <div class="flex gap-2 text-[11px]">
+              <span class="text-slate-600 font-mono">Preset:</span>
+              <button class="compare-preset-btn text-blue-400 hover:text-cyan-400 transition" data-tickers="BBCA, BBRI, BMRI, BBNI">Big 4 Banks</button>
+              <span class="text-slate-700">•</span>
+              <button class="compare-preset-btn text-blue-400 hover:text-cyan-400 transition" data-tickers="ADRO, PTBA, ITMG">Batu Bara</button>
+              <span class="text-slate-700">•</span>
+              <button class="compare-preset-btn text-blue-400 hover:text-cyan-400 transition" data-tickers="ICBP, INDF, MYOR">Consumer</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading -->
+      <div id="compare-loading" class="hidden py-16 text-center space-y-4">
+        <div class="inline-block rounded-full h-10 w-10 border-4"></div>
+        <p class="text-slate-300 font-semibold">Mengambil data multi-saham & menjalankan komparasi AI...</p>
+      </div>
+
+      <!-- Results -->
+      <div id="compare-results" class="space-y-6 hidden">
+        
+        <div class="overflow-x-auto table-container">
+          <table class="data-table">
+            <thead>
+              <tr id="compare-table-head">
+              </tr>
+            </thead>
+            <tbody id="compare-table-body" class="font-sans">
+            </tbody>
+          </table>
+        </div>
+
+        <!-- AI Verdict -->
+        <div id="compare-ai-verdict-card" class="glass-panel p-6 sm:p-8 rounded-2xl space-y-5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between pb-4 gap-3 border-b border-slate-800/50">
+            <div class="flex items-center space-x-3">
+              <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 via-orange-500 to-violet-600 border border-amber-400/20 flex items-center justify-center text-white shadow-lg shadow-amber-500/20">
+                <i data-lucide="trophy" class="w-5 h-5 text-amber-200"></i>
+              </div>
+              <div>
+                <h3 class="font-bold text-white text-base tracking-tight">Putusan & Ranking Komparasi AI</h3>
+                <p class="text-[11px] text-slate-500">Head-to-head objektif: Value, Dividend, Growth, atau Avoid</p>
+              </div>
+            </div>
+
+            <button id="btn-copy-compare-ai" title="Salin putusan ke clipboard" class="px-3 py-1.5 rounded-lg bg-slate-800/50 hover:bg-slate-700/60 border border-slate-700/40 text-xs font-medium text-slate-400 hover:text-white transition flex items-center space-x-1.5 self-start sm:self-auto">
+              <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+              <span id="btn-copy-compare-ai-text">Salin Putusan</span>
+            </button>
+          </div>
+
+          <div id="compare-ai-content" class="prose-ai text-sm overflow-x-auto">
+          </div>
+        </div>
+
+      </div>
+
+    </section>
+
+
+    <!-- ============================================================ -->
+    <!-- TAB 4: KALKULATOR FAIR VALUE                                  -->
+    <!-- ============================================================ -->
+    <section id="tab-valuation" class="tab-pane space-y-6 hidden">
+      
+      <div class="glass-panel p-6 rounded-2xl space-y-5">
+        <div>
+          <h2 class="text-2xl font-extrabold tracking-tight text-white flex items-center gap-2.5">
+            <span class="text-3xl">🧮</span>
+            <span>Kalkulator Fair Value</span>
+          </h2>
+          <p class="text-sm text-slate-500 mt-1">Hitung estimasi harga wajar menggunakan 4 model: Graham, PE Benchmark, ROE-adjusted PBV, dan EPV.</p>
+        </div>
+
+        <form id="form-calc" class="grid grid-cols-1 md:grid-cols-2 gap-5 pt-3">
+          
+          <div class="space-y-4">
+            <div>
+              <label for="calc-price" class="block text-sm font-semibold text-slate-300 mb-1.5">Harga Pasar (Rp)</label>
+              <input type="number" id="calc-price" value="5000" step="50" required class="w-full rounded-xl px-4 py-2.5 text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            </div>
+            <div>
+              <label for="calc-eps" class="block text-sm font-semibold text-slate-300 mb-1.5">EPS (Rp)</label>
+              <input type="number" id="calc-eps" value="400" step="10" required class="w-full rounded-xl px-4 py-2.5 text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            </div>
+            <div>
+              <label for="calc-bvps" class="block text-sm font-semibold text-slate-300 mb-1.5">BVPS (Rp)</label>
+              <input type="number" id="calc-bvps" value="3000" step="50" required class="w-full rounded-xl px-4 py-2.5 text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            </div>
+          </div>
+
+          <div class="space-y-4">
+            <div>
+              <label for="calc-target-pe" class="block text-sm font-semibold text-slate-300 mb-1.5">Target PER Acuan (x)</label>
+              <input type="number" id="calc-target-pe" value="15.0" step="0.5" required class="w-full rounded-xl px-4 py-2.5 text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            </div>
+            <div>
+              <label for="calc-target-pbv" class="block text-sm font-semibold text-slate-300 mb-1.5">Target PBV Acuan (x)</label>
+              <input type="number" id="calc-target-pbv" value="1.8" step="0.1" required class="w-full rounded-xl px-4 py-2.5 text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            </div>
+            <div>
+              <label for="calc-margin" class="block text-sm font-semibold text-slate-300 mb-1.5">Net Profit Margin (%)</label>
+              <input type="number" id="calc-margin" value="15.0" step="0.5" required class="w-full rounded-xl px-4 py-2.5 text-slate-100 text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none" />
+            </div>
+          </div>
+
+          <div class="md:col-span-2 pt-2">
+            <button type="submit" class="w-full py-3 text-white font-bold rounded-xl text-sm transition flex items-center justify-center space-x-2">
+              <i data-lucide="calculator" class="w-4 h-4"></i>
+              <span>Hitung Estimasi Harga Wajar</span>
+            </button>
+          </div>
+
+        </form>
+      </div>
+
+      <!-- Calculation Results -->
+      <div id="calc-results" class="glass-panel p-6 rounded-2xl space-y-6 hidden">
+        <h3 class="text-base font-bold text-white flex items-center gap-2">
+          <i data-lucide="check-circle" class="w-5 h-5 text-emerald-400"></i>
+          <span>Hasil Estimasi Fair Value</span>
+        </h3>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div class="glass-card p-4 rounded-xl">
+            <span class="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">Harga Saat Ini</span>
+            <div id="calc-res-price" class="text-2xl font-extrabold text-white mt-1.5 font-mono">Rp 5,000</div>
+          </div>
+          <div class="glass-card p-4 rounded-xl">
+            <span class="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">Fair Value Konsensus</span>
+            <div id="calc-res-fair-value" class="text-2xl font-extrabold text-blue-400 mt-1.5 font-mono">Rp 5,200</div>
+            <span id="calc-res-status" class="text-[11px] font-semibold">🟡 Fairly Valued</span>
+          </div>
+          <div class="glass-card p-4 rounded-xl">
+            <span class="text-[11px] text-slate-500 font-semibold uppercase tracking-wider">Margin of Safety</span>
+            <div id="calc-res-mos" class="text-2xl font-extrabold text-emerald-400 mt-1.5 font-mono">+4.0%</div>
+          </div>
+        </div>
+
+        <div>
+          <h4 class="text-xs font-bold text-slate-400 mb-3 uppercase tracking-wider">Detail Model Valuasi:</h4>
+          <div id="calc-res-models-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm font-mono">
+          </div>
+        </div>
+
+        <p id="calc-res-caption" class="text-[11px] text-slate-600 border-t border-slate-800/40 pt-3 font-mono"></p>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="py-6 text-center text-xs text-slate-600">
+    <p class="font-medium">Stock AI Agents — IHSG Screener & Fundamental Analyzer</p>
+    <p class="mt-1 text-[10px] text-slate-700">Built with FastAPI, LangGraph, & Tailwind CSS • Disclaimer: Keputusan investasi sepenuhnya berada di tangan investor. Always DYOR.</p>
+  </footer>
+
+  <!-- App Logic JavaScript -->
+  <script src="app.js"></script>
+</body>
+</html>
