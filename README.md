@@ -65,7 +65,8 @@ docker compose up --build
 ```
 Aplikasi dapat diakses di:
 - **FastAPI Backend & Swagger Docs:** [http://localhost:8000/docs](http://localhost:8000/docs)
-- **Web UI (Tailwind + Vanilla JS):** [http://localhost:8000/app/](http://localhost:8000/app/)
+- **Web UI Landing Page (Tentang Proyek):** [http://localhost:8000/app/landing.html](http://localhost:8000/app/landing.html)
+- **Web UI Terminal Dashboard (Screener & AI):** [http://localhost:8000/app/](http://localhost:8000/app/)
 - **Streamlit Analytics Dashboard:** [http://localhost:8501](http://localhost:8501)
 
 #### Opsi B: Menjalankan Mandiri (Lokal / Python)

@@ -87,6 +87,25 @@ function initTabs() {
       switchTab(targetId);
     });
   });
+
+  // Support deep linking from landing page (e.g. index.html?tab=tab-analysis&ticker=BBCA or index.html#tab-compare)
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    const requestedTab = urlParams.get("tab") || window.location.hash.replace("#", "");
+    if (requestedTab && document.getElementById(requestedTab)) {
+      switchTab(requestedTab);
+    }
+
+    const tickerParam = urlParams.get("ticker");
+    if (tickerParam) {
+      const inputTicker = document.getElementById("input-ticker");
+      if (inputTicker) {
+        inputTicker.value = tickerParam.toUpperCase();
+      }
+    }
+  } catch (e) {
+    console.debug("Query param parse skipped:", e);
+  }
 }
 
 function switchTab(tabId) {

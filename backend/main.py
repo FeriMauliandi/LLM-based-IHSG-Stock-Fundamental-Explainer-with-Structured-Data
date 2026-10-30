@@ -188,6 +188,7 @@ def root():
         "documentation": "/docs",
         "redoc": "/redoc",
         "web_ui": "/app/",
+        "landing_page": "/app/landing.html",
         "endpoints": {
             "popular_stocks": "GET /api/stocks/popular",
             "stock_detail": "GET /api/stocks/{ticker}?include_ai=false",
